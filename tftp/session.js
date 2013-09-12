@@ -1,5 +1,4 @@
 var os = require('os');
-var fs = require('fs');
 var opcodes = require('./messages').opcodes;
 var TFTPSocket = require('./tftp_socket').TFTPSocket;
 
@@ -14,7 +13,7 @@ var errors = {
   noSuchUser: 7
 };
 
-function Session(id, socket, destination) {
+function Session(id, socket, destination, streamFactory) {
   var self = this;
   this.id = id;
   this.socket = new TFTPSocket(socket, destination);
@@ -27,11 +26,9 @@ function Session(id, socket, destination) {
   this.initRead = function(msg) {
     console.log("%s: GET %s", self.id, msg.file);
     if(self.stream === undefined) {
-      fs.stat(msg.file, function(error, stats) {
-        if(error) {
+      streamFactory.checkPath(msg.file, function(error) {
+        if(error){
           self.socket.sendError(errors.notFound, error.toString());
-        } else if(!stats.isFile()) {
-          self.socket.sendError(errors.notFound, msg.file + " is not a file"); 
         } else {
           initValidRead(msg.file);
         }
@@ -43,7 +40,7 @@ function Session(id, socket, destination) {
 
   var initValidRead = function(path) {
     self.state = "data_wait";
-    var stream = fs.createReadStream(path, { flags: 'r', bufferSize: 512 });
+    var stream = streamFactory.createReadStream(path);
     stream.on("data", function(data) {
       stream.pause();
       self.buffer.push(data);
@@ -108,7 +105,7 @@ function Session(id, socket, destination) {
 
   this.initWrite = function(msg) {
     console.log("%s: PUT %s", self.id, msg.file);
-    var stream = fs.createWriteStream(msg.file, { flags: 'w'});
+    var stream = streamFactory.createWriteStream(msg.file);
     stream.on("error", function(error) {
       self.socket.sendError(errors.undefined, "Write error!")
     });

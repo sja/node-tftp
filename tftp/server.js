@@ -5,9 +5,9 @@ var dgram = require('dgram');
 var util = require('util');
 var os = require('os');
 var messageParser = require('./message_parser').messageParser;
-var Session = require('./session.js').Session;
 
-function Server(port) {
+
+function Server(port, sessionFactory) {
   var self = this;
   var sessions = {};
   this.port = port || 69;
@@ -22,9 +22,9 @@ function Server(port) {
   var getOrCreateSession = function(peer) {
     var id = util.format("%s:%d", peer.address, peer.port);
     if(sessions[id] === undefined) {
-      sessions[id] = new Session(id, self.socket, peer);
+      sessions[id] = sessionFactory.createSession(id, self.socket, peer);
     }
-      return sessions[id];
+    return sessions[id];
   };
 
   this.clearStaleSessions = function() {
